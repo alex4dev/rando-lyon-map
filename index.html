@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Randonnées sportives autour de Lyon</title>
+  <meta name="description" content="Carte interactive de 10 randonnées sportives accessibles depuis Lyon, avec traces GPX intégrées, dénivelé, durée, départ et recadrage automatique." />
+  <meta name="robots" content="index,follow" />
+  <meta property="og:title" content="Randonnées sportives autour de Lyon" />
+  <meta property="og:description" content="10 randonnées sportives accessibles depuis Lyon avec traces GPX et carte interactive." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="assets/img/og-rando-lyon.svg" />
+  <link rel="canonical" href="https://alex4dev.github.io/rando-lyon-map/" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+  <main id="map" aria-label="Carte interactive des randonnées autour de Lyon"></main>
+
+  <button class="floating-toggle icon-button icon-button--dark" id="expand-panel-button" type="button" aria-label="Déplier la liste des randonnées" title="Déplier">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+      <path d="m18 15-6-6-6 6" />
+    </svg>
+  </button>
+
+  <aside class="panel" id="panel" aria-label="Liste des randonnées">
+    <header class="panel__header">
+      <div>
+        <h1 class="panel__title">Randonnées autour de Lyon</h1>
+        <p class="panel__subtitle">10 traces GPX intégrées. Sélectionne une randonnée pour afficher son tracé.</p>
+      </div>
+      <div class="panel__actions">
+        <button class="icon-button" id="reset-button" type="button" aria-label="Afficher tous les départs" title="Afficher tous les départs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <path d="M3 4v5h5" />
+          </svg>
+        </button>
+        <button class="icon-button" id="collapse-panel-button" type="button" aria-label="Réduire la liste" title="Réduire">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="panel__body">
+      <p class="note"><strong>Carte autonome :</strong> les GPX sont stockés dans le projet et chargés depuis ses assets. Aucun téléchargement externe n’est nécessaire pour tracer les randonnées.</p>
+      <div class="filters" aria-label="Filtres">
+        <button class="filter-chip is-active" data-filter="all" type="button">Toutes</button>
+        <button class="filter-chip" data-filter="Très difficile" type="button">Très difficile</button>
+        <button class="filter-chip" data-filter="Difficile" type="button">Difficile</button>
+        <button class="filter-chip" data-filter="Moyenne" type="button">Moyenne</button>
+      </div>
+      <ol class="hike-list" id="hike-list"></ol>
+    </section>
+  </aside>
+
+  <noscript>Cette carte nécessite JavaScript pour afficher les traces GPX.</noscript>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="src/app.js" defer></script>
+</body>
+</html>

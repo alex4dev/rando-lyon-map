@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://alex4dev.github.io/rando-lyon-map/sitemap.xml
