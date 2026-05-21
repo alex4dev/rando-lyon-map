@@ -12,7 +12,7 @@
   <meta property="og:image" content="assets/img/og-rando-lyon.svg" />
   <link rel="canonical" href="https://alex4dev.github.io/rando-lyon-map/" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="src/styles.css" />
+  <link rel="stylesheet" href="src/styles.css?v=1.1-color" />
 </head>
 <body>
   <main id="map" aria-label="Carte interactive des randonnées autour de Lyon"></main>
@@ -27,7 +27,7 @@
     <header class="panel__header">
       <div>
         <h1 class="panel__title">Randonnées autour de Lyon</h1>
-        <p class="panel__subtitle">10 traces GPX intégrées. Sélectionne une randonnée pour afficher son tracé.</p>
+        <p class="panel__subtitle">10 randonnées sportives accessibles depuis Lyon.</p>
       </div>
       <div class="panel__actions">
         <button class="icon-button" id="reset-button" type="button" aria-label="Afficher tous les départs" title="Afficher tous les départs">
@@ -45,19 +45,19 @@
     </header>
 
     <section class="panel__body">
-      <p class="note"><strong>Carte autonome :</strong> les GPX sont stockés dans le projet et chargés depuis ses assets. Aucun téléchargement externe n’est nécessaire pour tracer les randonnées.</p>
+      <p class="note"><strong>V1.1</strong> Carte centrée sur une trace active, avec départs numérotés et GPX intégrés.</p>
       <div class="filters" aria-label="Filtres">
         <button class="filter-chip is-active" data-filter="all" type="button">Toutes</button>
         <button class="filter-chip" data-filter="Très difficile" type="button">Très difficile</button>
         <button class="filter-chip" data-filter="Difficile" type="button">Difficile</button>
         <button class="filter-chip" data-filter="Moyenne" type="button">Moyenne</button>
       </div>
-      <ol class="hike-list" id="hike-list"></ol>
+      <ol class="hike-list" id="hike-list" role="listbox" aria-label="Randonnées"></ol>
     </section>
   </aside>
 
   <noscript>Cette carte nécessite JavaScript pour afficher les traces GPX.</noscript>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="src/app.js" defer></script>
+  <script src="src/app.js?v=1.1-color" defer></script>
 </body>
 </html>

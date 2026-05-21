@@ -1,13 +1,55 @@
 :root {
-  --panel-bg: #ffffff;
-  --panel-text: #1f2937;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --soft: #f8fafc;
-  --soft-2: #f1f5f9;
-  --danger: #b91c1c;
-  --success: #15803d;
-  --shadow: 0 8px 28px rgba(0, 0, 0, .18);
+  /* Selection / brand */
+  --selected: #1f6b4a;
+  --selected-container: #d8f2df;
+  --on-selected-container: #072113;
+
+  /* Difficulty */
+  --difficulty-medium: #1565c0;
+  --difficulty-medium-container: #d8e9ff;
+  --on-difficulty-medium-container: #073763;
+
+  --difficulty-hard: #c62828;
+  --difficulty-hard-container: #ffe0dc;
+  --on-difficulty-hard-container: #7f0000;
+
+  --difficulty-very-hard: #2b2930;
+  --difficulty-very-hard-container: #ece7ef;
+  --on-difficulty-very-hard-container: #ffffff;
+
+  /* Warning */
+  --warning: #8a4b00;
+  --warning-container: #ffddb0;
+  --on-warning-container: #2c1600;
+
+  /* Surfaces */
+  --surface: #fffdf7;
+  --surface-container: #f7f1ea;
+  --surface-container-high: #eee7df;
+  --on-surface: #1f1b16;
+  --on-surface-variant: #5a5048;
+  --outline: #d7c8bd;
+
+  /* Shapes */
+  --radius-panel: 28px;
+  --radius-card: 20px;
+  --radius-chip: 999px;
+
+  --panel-bg: var(--surface);
+  --panel-text: var(--on-surface);
+  --muted: var(--on-surface-variant);
+  --border: var(--outline);
+  --soft: var(--surface-container);
+  --soft-2: var(--surface-container-high);
+  --surface-high: var(--surface-container-high);
+  --primary: var(--selected);
+  --primary-ink: #ffffff;
+  --error: #b3261e;
+  --danger: var(--error);
+  --success: var(--selected);
+  --shadow: 0 18px 48px rgba(30, 24, 34, .18);
+  --shadow-soft: 0 8px 22px rgba(30, 24, 34, .12);
+  --ease-emphasized: cubic-bezier(.2, 0, 0, 1);
 }
 
 html,
@@ -15,7 +57,8 @@ body {
   height: 100%;
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: var(--panel-text);
+  color: var(--on-surface);
+  background: var(--surface-container);
 }
 
 #map {
@@ -27,8 +70,8 @@ body {
   width: 36px;
   height: 36px;
   border: 1px solid var(--border);
-  border-radius: 999px;
-  background: #fff;
+  border-radius: var(--radius-chip);
+  background: var(--panel-bg);
   color: var(--panel-text);
   display: inline-flex;
   align-items: center;
@@ -36,13 +79,20 @@ body {
   cursor: pointer;
   padding: 0;
   box-shadow: 0 1px 3px rgba(15, 23, 42, .08);
-  transition: transform .12s ease, background .12s ease, box-shadow .12s ease;
+  transition: transform .18s var(--ease-emphasized), background .18s ease, box-shadow .18s ease;
 }
 
 .icon-button:hover {
   background: var(--soft-2);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, .12);
+  box-shadow: var(--shadow-soft);
+}
+
+.icon-button:focus-visible,
+.filter-chip:focus-visible,
+.hike-card:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 34%, transparent);
+  outline-offset: 2px;
 }
 
 .icon-button svg {
@@ -54,14 +104,14 @@ body {
 .icon-button--dark {
   width: 52px;
   height: 52px;
-  color: #fff;
-  background: #111827;
+  color: var(--primary-ink);
+  background: var(--primary);
   border: none;
   box-shadow: var(--shadow);
 }
 
 .icon-button--dark:hover {
-  background: #374151;
+  background: #20392f;
 }
 
 .icon-button--dark svg {
@@ -74,7 +124,11 @@ body {
   left: 18px;
   bottom: 18px;
   z-index: 1001;
-  display: none;
+  display: inline-flex;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px) scale(.92);
+  transition: opacity .2s ease, transform .24s var(--ease-emphasized);
 }
 
 .panel {
@@ -87,16 +141,23 @@ body {
   overflow: hidden;
   background: var(--panel-bg);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-panel);
   box-shadow: var(--shadow);
+  transform-origin: left bottom;
+  transition: opacity .24s ease, transform .28s var(--ease-emphasized), visibility .24s ease;
 }
 
 body.panel-collapsed .panel {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transform: translateY(18px) scale(.96);
 }
 
 body.panel-collapsed .floating-toggle {
-  display: inline-flex;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
 }
 
 .panel__header {
@@ -106,13 +167,14 @@ body.panel-collapsed .floating-toggle {
   justify-content: space-between;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
-  background: var(--soft);
+  background: linear-gradient(180deg, var(--soft), color-mix(in srgb, var(--panel-bg) 72%, var(--soft)));
 }
 
 .panel__title {
   font-weight: 800;
-  font-size: 15px;
+  font-size: 16px;
   margin: 0;
+  letter-spacing: 0;
 }
 
 .panel__subtitle {
@@ -133,17 +195,18 @@ body.panel-collapsed .floating-toggle {
   padding: 12px 14px 14px;
   overflow: auto;
   max-height: calc(min(78vh, 780px) - 58px);
+  scrollbar-width: thin;
 }
 
 .note {
-  background: var(--soft);
+  background: var(--surface-high);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px;
+  border-radius: 8px;
+  padding: 9px 10px;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.4;
-  margin: 0 0 10px;
+  margin: 0 0 12px;
 }
 
 .note strong {
@@ -154,25 +217,30 @@ body.panel-collapsed .floating-toggle {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .filter-chip {
   border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 999px;
+  background: var(--panel-bg);
+  border-radius: var(--radius-chip);
   color: var(--panel-text);
   cursor: pointer;
   font-weight: 750;
   font-size: 12px;
-  padding: 6px 9px;
+  padding: 7px 10px;
+  transition: background .18s ease, border-color .18s ease, color .18s ease, transform .18s var(--ease-emphasized);
 }
 
 .filter-chip.is-active,
 .filter-chip:hover {
-  background: #111827;
-  color: #fff;
-  border-color: #111827;
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--primary);
+}
+
+.filter-chip:hover {
+  transform: translateY(-1px);
 }
 
 .hike-list {
@@ -180,49 +248,77 @@ body.panel-collapsed .floating-toggle {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 8px;
+  gap: 9px;
 }
 
 .hike-card {
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #fff;
-  padding: 10px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  padding: 12px 12px 12px 14px;
   cursor: pointer;
-  color: var(--card-color);
+  color: var(--on-surface);
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s ease, background .2s ease, box-shadow .22s ease, transform .22s var(--ease-emphasized);
+}
+
+.hike-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--difficulty-color);
+  opacity: .9;
+  transform: scaleY(.42);
+  transform-origin: center;
+  border-radius: 0 var(--radius-chip) var(--radius-chip) 0;
+  transition: opacity .2s ease, transform .24s var(--ease-emphasized), width .24s var(--ease-emphasized);
 }
 
 .hike-card:hover {
-  background: var(--soft);
+  background: color-mix(in srgb, var(--surface-container) 38%, var(--surface));
+  box-shadow: var(--shadow-soft);
+  transform: translateY(-1px);
 }
 
 .hike-card.is-active {
-  border-color: currentColor;
-  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 20%, transparent);
+  border-color: var(--selected);
+  background: color-mix(in srgb, var(--selected-container) 35%, var(--surface));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--selected) 18%, transparent), 0 8px 20px rgba(0, 0, 0, .14);
+}
+
+.hike-card.is-active::before {
+  opacity: 1;
+  transform: scaleY(1);
+  width: 6px;
 }
 
 .hike-card.is-hidden {
   display: none;
 }
 
-.hike-card__top {
+.hike-card__header {
   display: flex;
   gap: 10px;
   align-items: flex-start;
+  position: relative;
+  z-index: 1;
 }
 
 .hike-card__number {
   flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  color: #fff;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-chip);
+  color: var(--primary-ink);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 900;
-  background: var(--card-color);
+  background: var(--difficulty-color);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .45);
 }
 
 .hike-card__main {
@@ -231,10 +327,11 @@ body.panel-collapsed .floating-toggle {
 }
 
 .hike-card__name {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 800;
   line-height: 1.25;
   color: var(--panel-text);
+  letter-spacing: 0;
 }
 
 .hike-card__meta {
@@ -244,35 +341,106 @@ body.panel-collapsed .floating-toggle {
   line-height: 1.35;
 }
 
-.hike-card__status {
-  margin-top: 7px;
-  font-size: 12px;
-  display: flex;
-  justify-content: space-between;
+.hike-card__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  align-items: center;
+  margin-top: 10px;
 }
 
+.hike-card__stats span {
+  min-width: 0;
+}
+
+.hike-card__stats strong,
+.hike-card__stats small {
+  display: block;
+}
+
+.hike-card__stats strong {
+  color: var(--on-surface);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.hike-card__stats small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+  margin-top: 1px;
+}
+
+.hike-card__chips,
+.popup__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hike-card__chips {
+  margin-top: 10px;
+}
+
+.difficulty-chip,
+.warning-chip,
 .status {
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   padding: 4px 8px;
-  font-weight: 800;
+  font-weight: 850;
+  line-height: 1;
   white-space: nowrap;
 }
 
-.status--loaded {
-  background: #dcfce7;
-  color: var(--success);
+.difficulty-chip,
+.warning-chip {
+  font-size: 12px;
+}
+
+.difficulty-chip--medium {
+  background: var(--difficulty-medium-container);
+  color: var(--on-difficulty-medium-container);
+}
+
+.difficulty-chip--hard {
+  background: var(--difficulty-hard-container);
+  color: var(--on-difficulty-hard-container);
+}
+
+.difficulty-chip--very-hard {
+  background: var(--difficulty-very-hard);
+  color: var(--on-difficulty-very-hard-container);
+}
+
+.warning-chip {
+  background: var(--warning-container);
+  color: var(--on-warning-container);
+}
+
+.status {
+  font-size: 11px;
+}
+
+.status--idle {
+  display: none;
 }
 
 .status--loading {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--selected-container);
+  color: var(--on-selected-container);
+}
+
+.status--active {
+  background: var(--selected);
+  color: var(--primary-ink);
 }
 
 .status--error {
   background: #fee2e2;
-  color: var(--danger);
+  color: var(--error);
 }
 
 .popup {
@@ -291,7 +459,12 @@ body.panel-collapsed .floating-toggle {
   padding: 8px 10px;
   margin: 8px 0;
   font-weight: 750;
-  color: #fff;
+  background: var(--selected-container);
+  color: var(--on-selected-container);
+}
+
+.popup__chips {
+  margin: 8px 0;
 }
 
 .popup__meta {
@@ -319,9 +492,15 @@ body.panel-collapsed .floating-toggle {
 }
 
 .popup__warning {
-  color: var(--danger);
-  font-weight: 800;
   margin-top: 8px;
+}
+
+.popup__warning-note {
+  color: var(--on-surface-variant);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  margin-top: 6px;
 }
 
 .popup__link {
@@ -335,7 +514,7 @@ body.panel-collapsed .floating-toggle {
 .numbered-marker {
   color: white;
   border: 2px solid white;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   width: 28px;
   height: 28px;
   display: flex;
@@ -345,6 +524,36 @@ body.panel-collapsed .floating-toggle {
   font-weight: 900;
   box-shadow: 0 2px 8px rgba(0, 0, 0, .28);
   background: var(--marker-color);
+  transition: transform .2s var(--ease-emphasized), box-shadow .2s ease;
+}
+
+.numbered-marker--active {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--selected) 42%, transparent), 0 5px 16px rgba(0, 0, 0, .32);
+}
+
+.route-line-halo {
+  filter: drop-shadow(0 1px 2px rgba(20, 20, 20, .18));
+}
+
+.route-line {
+  filter: drop-shadow(0 3px 5px rgba(20, 20, 20, .24));
+}
+
+.active-start-marker {
+  filter: drop-shadow(0 2px 5px rgba(20, 20, 20, .28));
+  animation: start-marker-pop .32s var(--ease-emphasized);
+}
+
+@keyframes start-marker-pop {
+  from {
+    opacity: 0;
+    transform: scale(.72);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @media (max-width: 640px) {
@@ -352,10 +561,40 @@ body.panel-collapsed .floating-toggle {
     left: 10px;
     bottom: 10px;
     width: calc(100vw - 20px);
+    max-height: 72vh;
+    border-radius: 22px;
   }
 
   .floating-toggle {
     left: 12px;
     bottom: 12px;
+  }
+
+  .panel__header {
+    padding: 11px 12px;
+  }
+
+  .panel__body {
+    padding: 10px 12px 12px;
+    max-height: calc(72vh - 58px);
+  }
+
+  .hike-card {
+    padding: 10px;
+  }
+
+  .hike-card__header {
+    gap: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
   }
 }
