@@ -9,6 +9,9 @@ let activeHikeId = null;
 let selectionRequestId = 0;
 
 const map = L.map("map").setView([45.86, 5.2], 8);
+const routeRenderer = L.svg({
+  padding: 0.5
+});
 
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18,
@@ -157,25 +160,34 @@ async function loadRouteLayer(hike) {
   const points = parseGpxText(await response.text());
   const routeColor = resolveCssColor(getDifficultyMeta(hike).routeColor);
   const halo = L.polyline(points, {
+    renderer: routeRenderer,
     color: resolveCssColor("var(--surface)"),
     weight: 9,
     opacity: 0.65,
     lineJoin: "round",
     lineCap: "round",
-    className: "route-line-halo"
+    smoothFactor: 0,
+    noClip: true,
+    interactive: false,
+    className: "active-route-halo route-line-halo"
   });
   const route = L.polyline(points, {
+    renderer: routeRenderer,
     color: routeColor,
     weight: 6,
     opacity: 0.95,
     lineJoin: "round",
     lineCap: "round",
-    className: "route-line route-line--active"
-  }).bindTooltip(`${hike.rank}. ${hike.name}`, { sticky: true });
+    smoothFactor: 0,
+    noClip: true,
+    interactive: false,
+    className: "active-route route-line route-line--active"
+  });
   const layer = L.layerGroup([halo, route]);
 
   layer.getBounds = () => route.getBounds();
   layer.activeRoute = route;
+  layer.activeHalo = halo;
   routeLayers.set(hike.id, layer);
   return layer;
 }
@@ -244,7 +256,8 @@ function updateCardStatus(hikeId, type, text) {
   status.textContent = text;
 }
 
-async function selectHike(hikeId) {
+async function selectHike(hikeId, options = {}) {
+  const { openPopup = false } = options;
   const hike = hikes.find((item) => item.id === hikeId);
   if (!hike) return;
 
@@ -256,7 +269,11 @@ async function selectHike(hikeId) {
   setActiveMarker(hikeId);
   clearActiveRoutes();
   showActiveStartMarker(hike);
-  markers.get(hikeId)?.openPopup();
+  if (openPopup) {
+    markers.get(hikeId)?.openPopup();
+  } else {
+    map.closePopup();
+  }
 
   try {
     updateCardStatus(hikeId, "loading", "Chargement trace");
@@ -265,7 +282,7 @@ async function selectHike(hikeId) {
 
     clearActiveRoutes();
     layer.addTo(map);
-    revealRouteLayer(layer.activeRoute);
+    revealRouteLayer(layer);
     updateCardStatus(hikeId, "active", "Sélectionnée");
     map.fitBounds(layer.getBounds(), { padding: [54, 54], maxZoom: 15, animate: true, duration: 0.7 });
   } catch (error) {
@@ -279,19 +296,23 @@ async function selectHike(hikeId) {
 
 function revealRouteLayer(layer) {
   requestAnimationFrame(() => {
-    const path = layer.getElement();
-    if (!path || typeof path.getTotalLength !== "function") return;
+    const routePath = layer.activeRoute?.getElement();
+    const haloPath = layer.activeHalo?.getElement();
 
-    const length = path.getTotalLength();
-    path.style.transition = "none";
-    path.style.strokeDasharray = length;
-    path.style.strokeDashoffset = length;
-    path.style.opacity = "0.35";
-
+    [routePath, haloPath].forEach((path) => {
+      if (!path) return;
+      path.style.transition = "none";
+      path.style.opacity = "0";
+    });
     requestAnimationFrame(() => {
-      path.style.transition = "stroke-dashoffset 700ms cubic-bezier(.2, 0, 0, 1), opacity 240ms ease";
-      path.style.strokeDashoffset = "0";
-      path.style.opacity = "1";
+      if (routePath) {
+        routePath.style.transition = "opacity 180ms ease";
+        routePath.style.opacity = "0.95";
+      }
+      if (haloPath) {
+        haloPath.style.transition = "opacity 180ms ease";
+        haloPath.style.opacity = "0.65";
+      }
     });
   });
 }
@@ -331,11 +352,11 @@ function createHikeList() {
       </div>
     `;
 
-    li.addEventListener("click", () => selectHike(hike.id));
+    li.addEventListener("click", () => selectHike(hike.id, { openPopup: false }));
     li.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        selectHike(hike.id);
+        selectHike(hike.id, { openPopup: false });
       }
     });
     list.appendChild(li);
@@ -385,7 +406,7 @@ function createMarkers() {
       .addTo(map)
       .bindPopup(buildPopup(hike));
 
-    marker.on("click", () => selectHike(hike.id));
+    marker.on("click", () => selectHike(hike.id, { openPopup: true }));
     markers.set(hike.id, marker);
     markerBounds.extend(hike.startCoordinates);
   });
@@ -410,7 +431,7 @@ async function init() {
 
   const initialId = new URLSearchParams(window.location.search).get("rando");
   if (initialId && hikes.some((hike) => hike.id === initialId)) {
-    await selectHike(initialId);
+    await selectHike(initialId, { openPopup: false });
   }
 }
 
