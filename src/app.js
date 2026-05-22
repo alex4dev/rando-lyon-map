@@ -4,18 +4,82 @@ const markers = new Map();
 let markerBounds = null;
 let hikes = [];
 let activeFilter = "all";
+let activeStartMarker = null;
+let activeHikeId = null;
+let selectionRequestId = 0;
 
 const map = L.map("map").setView([45.86, 5.2], 8);
+const routeRenderer = L.svg({
+  padding: 0.5
+});
 
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18,
   attribution: "&copy; OpenStreetMap contributors"
 }).addTo(map);
 
-function createNumberedIcon(hike) {
+const difficultyMeta = {
+  "Moyenne": {
+    level: "▲",
+    className: "difficulty-chip--medium",
+    routeColor: "var(--difficulty-medium)"
+  },
+  "Difficile": {
+    level: "▲▲",
+    className: "difficulty-chip--hard",
+    routeColor: "var(--difficulty-hard)"
+  },
+  "Très difficile": {
+    level: "▲▲▲",
+    className: "difficulty-chip--very-hard",
+    routeColor: "var(--difficulty-very-hard)"
+  }
+};
+
+function getDifficultyMeta(hike) {
+  return difficultyMeta[hike.difficulty] ?? difficultyMeta.Moyenne;
+}
+
+function resolveCssColor(value) {
+  const probe = document.createElement("span");
+  probe.style.color = value;
+  document.body.appendChild(probe);
+  const color = getComputedStyle(probe).color;
+  probe.remove();
+  return color;
+}
+
+function buildWarningTags(note) {
+  if (!note) return "";
+
+  const normalized = note.toLowerCase();
+  const tags = [];
+
+  if (normalized.includes("pluie") || normalized.includes("humide") || normalized.includes("météo")) {
+    tags.push("Éviter pluie");
+  }
+
+  if (normalized.includes("équip")) {
+    tags.push("Passage équipé");
+  }
+
+  if (normalized.includes("vertige") || normalized.includes("aérien")) {
+    tags.push("Vertige");
+  }
+
+  if (tags.length === 0) {
+    tags.push("Vigilance");
+  }
+
+  return tags.map((tag) => `<span class="warning-chip">⚠ ${tag}</span>`).join("");
+}
+
+function createNumberedIcon(hike, isActive = false) {
+  const meta = getDifficultyMeta(hike);
+
   return L.divIcon({
     className: "",
-    html: `<div class="numbered-marker" style="--marker-color:${hike.color}">${hike.rank}</div>`,
+    html: `<div class="numbered-marker${isActive ? " numbered-marker--active" : ""}" style="--marker-color:${meta.routeColor}">${hike.rank}</div>`,
     iconSize: [28, 28],
     iconAnchor: [14, 14],
     popupAnchor: [0, -14]
@@ -23,8 +87,9 @@ function createNumberedIcon(hike) {
 }
 
 function buildPopup(hike) {
+  const meta = getDifficultyMeta(hike);
   const warning = hike.technicalNote
-    ? `<div class="popup__warning">⚠️ ${hike.technicalNote}</div>`
+    ? `<div class="popup__warning">${buildWarningTags(hike.technicalNote)}<div class="popup__warning-note">${hike.technicalNote}</div></div>`
     : "";
 
   const sourceLink = hike.sourcePageUrl
@@ -35,7 +100,10 @@ function buildPopup(hike) {
     <div class="popup">
       <div class="popup__title">${hike.rank}. ${hike.name}</div>
       <div>${hike.massif}</div>
-      <div class="popup__drive" style="background:${hike.color}">🚗 Trajet depuis Lyon : ${hike.driveTimeFromLyon}</div>
+      <div class="popup__drive">Trajet depuis Lyon : ${hike.driveTimeFromLyon}</div>
+      <div class="popup__chips">
+        <span class="difficulty-chip ${meta.className}">${meta.level} ${hike.difficulty}</span>
+      </div>
       <div class="popup__meta">
         <div class="popup__row"><span class="popup__label">Départ</span><span class="popup__value">${hike.start}</span></div>
         <div class="popup__row"><span class="popup__label">Durée rando</span><span class="popup__value">${hike.duration}</span></div>
@@ -90,14 +158,36 @@ async function loadRouteLayer(hike) {
   }
 
   const points = parseGpxText(await response.text());
-  const layer = L.polyline(points, {
-    color: hike.color,
-    weight: 5,
-    opacity: 0.92,
+  const routeColor = resolveCssColor(getDifficultyMeta(hike).routeColor);
+  const halo = L.polyline(points, {
+    renderer: routeRenderer,
+    color: resolveCssColor("var(--surface)"),
+    weight: 9,
+    opacity: 0.65,
     lineJoin: "round",
-    lineCap: "round"
-  }).bindTooltip(`${hike.rank}. ${hike.name}`, { sticky: true });
+    lineCap: "round",
+    smoothFactor: 0,
+    noClip: true,
+    interactive: false,
+    className: "active-route-halo route-line-halo"
+  });
+  const route = L.polyline(points, {
+    renderer: routeRenderer,
+    color: routeColor,
+    weight: 6,
+    opacity: 0.95,
+    lineJoin: "round",
+    lineCap: "round",
+    smoothFactor: 0,
+    noClip: true,
+    interactive: false,
+    className: "active-route route-line route-line--active"
+  });
+  const layer = L.layerGroup([halo, route]);
 
+  layer.getBounds = () => route.getBounds();
+  layer.activeRoute = route;
+  layer.activeHalo = halo;
   routeLayers.set(hike.id, layer);
   return layer;
 }
@@ -110,9 +200,50 @@ function clearActiveRoutes() {
   });
 }
 
+function clearActiveStartMarker() {
+  if (activeStartMarker) {
+    map.removeLayer(activeStartMarker);
+    activeStartMarker = null;
+  }
+}
+
+function showActiveStartMarker(hike) {
+  const routeColor = resolveCssColor(getDifficultyMeta(hike).routeColor);
+
+  clearActiveStartMarker();
+
+  activeStartMarker = L.circleMarker(hike.startCoordinates, {
+    radius: 8,
+    color: resolveCssColor("var(--selected)"),
+    weight: 3,
+    fillColor: routeColor,
+    fillOpacity: 1,
+    className: "active-start-marker"
+  })
+    .addTo(map)
+    .bindTooltip(`Départ - ${hike.name}`, {
+      direction: "top",
+      offset: [0, -8]
+    });
+}
+
+function setActiveMarker(hikeId) {
+  hikes.forEach((hike) => {
+    markers.get(hike.id)?.setIcon(createNumberedIcon(hike, hike.id === hikeId));
+  });
+}
+
+function resetCardStatuses() {
+  hikes.forEach((hike) => {
+    updateCardStatus(hike.id, "idle", "");
+  });
+}
+
 function activateCard(hikeId) {
   document.querySelectorAll(".hike-card").forEach((card) => {
-    card.classList.toggle("is-active", card.dataset.hikeId === hikeId);
+    const isActive = card.dataset.hikeId === hikeId;
+    card.classList.toggle("is-active", isActive);
+    card.setAttribute("aria-selected", String(isActive));
   });
 }
 
@@ -121,29 +252,69 @@ function updateCardStatus(hikeId, type, text) {
   if (!card) return;
 
   const status = card.querySelector(".status");
-  status.className = `status status--${type}`;
+  status.className = `selection-badge status status--${type}`;
   status.textContent = text;
 }
 
-async function selectHike(hikeId) {
+async function selectHike(hikeId, options = {}) {
+  const { openPopup = false } = options;
   const hike = hikes.find((item) => item.id === hikeId);
   if (!hike) return;
 
+  activeHikeId = hikeId;
+  const requestId = ++selectionRequestId;
+
+  resetCardStatuses();
   activateCard(hikeId);
+  setActiveMarker(hikeId);
   clearActiveRoutes();
-  markers.get(hikeId)?.openPopup();
+  showActiveStartMarker(hike);
+  if (openPopup) {
+    markers.get(hikeId)?.openPopup();
+  } else {
+    map.closePopup();
+  }
 
   try {
-    updateCardStatus(hikeId, "loading", "Chargement…");
+    updateCardStatus(hikeId, "loading", "Chargement trace");
     const layer = await loadRouteLayer(hike);
+    if (requestId !== selectionRequestId || activeHikeId !== hikeId) return;
+
+    clearActiveRoutes();
     layer.addTo(map);
-    updateCardStatus(hikeId, "loaded", `${hike.pointCount} points`);
-    map.fitBounds(layer.getBounds(), { padding: [54, 54], maxZoom: 15 });
+    revealRouteLayer(layer);
+    updateCardStatus(hikeId, "active", "Sélectionnée");
+    map.fitBounds(layer.getBounds(), { padding: [54, 54], maxZoom: 15, animate: true, duration: 0.7 });
   } catch (error) {
+    if (requestId !== selectionRequestId || activeHikeId !== hikeId) return;
+
     console.error(error);
     updateCardStatus(hikeId, "error", "Trace indisponible");
-    map.fitBounds(L.latLngBounds([hike.startCoordinates]), { padding: [80, 80], maxZoom: 13 });
+    map.fitBounds(L.latLngBounds([hike.startCoordinates]), { padding: [80, 80], maxZoom: 13, animate: true });
   }
+}
+
+function revealRouteLayer(layer) {
+  requestAnimationFrame(() => {
+    const routePath = layer.activeRoute?.getElement();
+    const haloPath = layer.activeHalo?.getElement();
+
+    [routePath, haloPath].forEach((path) => {
+      if (!path) return;
+      path.style.transition = "none";
+      path.style.opacity = "0";
+    });
+    requestAnimationFrame(() => {
+      if (routePath) {
+        routePath.style.transition = "opacity 180ms ease";
+        routePath.style.opacity = "0.95";
+      }
+      if (haloPath) {
+        haloPath.style.transition = "opacity 180ms ease";
+        haloPath.style.opacity = "0.65";
+      }
+    });
+  });
 }
 
 function createHikeList() {
@@ -151,27 +322,43 @@ function createHikeList() {
   list.replaceChildren();
 
   hikes.forEach((hike) => {
+    const meta = getDifficultyMeta(hike);
     const li = document.createElement("li");
     li.className = "hike-card";
     li.dataset.hikeId = hike.id;
     li.dataset.difficulty = hike.difficulty;
-    li.style.setProperty("--card-color", hike.color);
+    li.setAttribute("role", "option");
+    li.setAttribute("tabindex", "0");
+    li.setAttribute("aria-selected", "false");
+    li.style.setProperty("--difficulty-color", meta.routeColor);
 
     li.innerHTML = `
-      <div class="hike-card__top">
+      <div class="hike-card__header">
         <span class="hike-card__number">${hike.rank}</span>
         <div class="hike-card__main">
           <div class="hike-card__name">${hike.name}</div>
-          <div class="hike-card__meta">${hike.massif} · 🚗 ${hike.driveTimeFromLyon} · 🥾 ${hike.duration} · ${hike.elevation}</div>
-          <div class="hike-card__status">
-            <span class="status status--loaded">${hike.pointCount} points</span>
-            <span>${hike.computedDistanceKm} km GPX</span>
-          </div>
+          <div class="hike-card__meta">${hike.massif} · ${hike.driveTimeFromLyon}</div>
         </div>
+        <span class="selection-badge status status--idle" aria-live="polite"></span>
+      </div>
+      <div class="hike-card__stats" aria-label="Détails randonnée">
+        <span><strong>${hike.duration}</strong><small>Durée</small></span>
+        <span><strong>${hike.elevation}</strong><small>D+</small></span>
+        <span><strong>${hike.distanceLabel}</strong><small>Distance</small></span>
+      </div>
+      <div class="hike-card__chips">
+        <span class="difficulty-chip ${meta.className}">${meta.level} ${hike.difficulty}</span>
+        ${buildWarningTags(hike.technicalNote)}
       </div>
     `;
 
-    li.addEventListener("click", () => selectHike(hike.id));
+    li.addEventListener("click", () => selectHike(hike.id, { openPopup: false }));
+    li.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectHike(hike.id, { openPopup: false });
+      }
+    });
     list.appendChild(li);
   });
 }
@@ -190,9 +377,15 @@ function applyFilter(filter) {
 }
 
 function resetMap() {
+  activeHikeId = null;
+  selectionRequestId++;
   clearActiveRoutes();
+  clearActiveStartMarker();
+  resetCardStatuses();
   activateCard(null);
-  map.fitBounds(markerBounds, { padding: [44, 44] });
+  setActiveMarker(null);
+  map.closePopup();
+  map.fitBounds(markerBounds, { padding: [44, 44], animate: true, duration: 0.7 });
 }
 
 function setPanelCollapsed(collapsed) {
@@ -213,7 +406,7 @@ function createMarkers() {
       .addTo(map)
       .bindPopup(buildPopup(hike));
 
-    marker.on("click", () => selectHike(hike.id));
+    marker.on("click", () => selectHike(hike.id, { openPopup: true }));
     markers.set(hike.id, marker);
     markerBounds.extend(hike.startCoordinates);
   });
@@ -238,7 +431,7 @@ async function init() {
 
   const initialId = new URLSearchParams(window.location.search).get("rando");
   if (initialId && hikes.some((hike) => hike.id === initialId)) {
-    await selectHike(initialId);
+    await selectHike(initialId, { openPopup: false });
   }
 }
 
